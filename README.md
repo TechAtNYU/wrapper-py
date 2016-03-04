@@ -1,2 +1,1 @@
-# wrapper-py
-API around our wrapper
+## Tech @ NYU API Wrapper (Work In Progress)
