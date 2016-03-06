@@ -166,6 +166,13 @@ class Person(object):
         """
         return Person(client, json_obj['id'], json_obj)
 
+    def organization(self):
+        org_data = self._relationships['currentEmployer']['data']
+        if org_data:
+            return Organization(self.client, org_data['id'])
+        return None
+
+
     def __getattr__(self, attr):
         if attr not in self._attributes:
             raise AttributeError("Person object has no attribute " + attr)
@@ -280,5 +287,6 @@ class Event(object):
 
 if __name__ == '__main__':
     api = TNYUAPI(api_key=os.environ['TNYU_API_KEY'])
-    org = api.get_all_organizations()
-    print org[0].liaisons()[0].twitterId
+    peeps = api.get_all_people()
+    print peeps[1].organization()
+
