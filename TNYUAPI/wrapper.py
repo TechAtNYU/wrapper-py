@@ -56,6 +56,17 @@ class TNYUAPI(object):
 
         return people
 
+    def get_all_projects(self, sort_by=None):
+        resources = self.get_resource('projects')['data']
+        proj = [Project.from_json(self, x) for x in resources]
+
+        if sort_by:
+            if not hasattr(proj[0], sort_by):
+                raise InvalidSearchAttributeError()
+            return sorted(proj, key=attrgetter(sort_by))
+
+        return proj
+
     def get_all_venues(self, sort_by=None):
         resources = self.get_resource('venues')['data']
         venues = [Venue.from_json(self, x) for x in resources]
@@ -98,6 +109,50 @@ class TNYUAPI(object):
 
         r = requests.get(API_ROOT_URL + path, headers=headers)
         return r.json()
+
+
+class Project(object):
+
+    def __init__(self, client, proj_id, json_obj=None):
+        self.id = proj_id
+        self.client = client
+
+        if json_obj:
+            self._attributes = json_obj['attributes']
+            self._relationships = json_obj['relationships']
+        else:
+            # Pull data from the API using event id
+            res = client.get_resource('projects/%s' % self.id)['data']
+            self._attributes = res['attributes']
+            self._relationships = res['relationships']
+
+    @classmethod
+    def from_json(cls, client, json_obj):
+        """
+        Allow instantiation of an Event object from JSON
+        """
+        return Project(client, json_obj['id'], json_obj)
+
+    def creators(self):
+        creators_list = self._relationships['creators']['data']
+        tmp = []
+
+        for each_creator in creators_list:
+            try:
+                tmp.append(Person(self.client, each_creator['id']))
+            except:
+                continue
+
+        return tmp
+
+    def shown_at(self):
+        events = self._relationships['shownAt']['data']
+        return [Event(self.client, x['id']) for x in events]
+
+    def __getattr__(self, attr):
+        if attr not in self._attributes:
+            raise AttributeError("Project object has no attribute " + attr)
+        return self._attributes[attr]
 
 
 class Organization(object):
@@ -171,7 +226,6 @@ class Person(object):
         if org_data:
             return Organization(self.client, org_data['id'])
         return None
-
 
     def __getattr__(self, attr):
         if attr not in self._attributes:
@@ -287,6 +341,7 @@ class Event(object):
 
 if __name__ == '__main__':
     api = TNYUAPI(api_key=os.environ['TNYU_API_KEY'])
-    peeps = api.get_all_people()
-    print peeps[1].organization()
+    proj = api.get_all_projects()
 
+    for e in proj:
+        print e.shown_at()
