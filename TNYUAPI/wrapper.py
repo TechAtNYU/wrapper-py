@@ -67,6 +67,17 @@ class TNYUAPI(object):
 
         return venues
 
+    def get_all_organizations(self, sort_by=None):
+        resources = self.get_resource('organizations')['data']
+        org = [Organization.from_json(self, x) for x in resources]
+
+        if sort_by:
+            if not hasattr(org[0], sort_by):
+                raise InvalidSearchAttributeError()
+            return sorted(org, key=attrgetter(sort_by))
+
+        return org
+
     def get_all_teams(self, sort_by=None):
         resources = self.get_resource('teams')['data']
         teams = [Team.from_json(self, x) for x in resources]
@@ -89,6 +100,50 @@ class TNYUAPI(object):
         return r.json()
 
 
+class Organization(object):
+
+    def __init__(self, client, org_id, json_obj=None):
+        self.id = org_id
+        self.client = client
+
+        if json_obj:
+            self._attributes = json_obj['attributes']
+            self._relationships = json_obj['relationships']
+        else:
+            # Pull data from the API using event id
+            res = client.get_resource('organizations/%s' % self.id)['data']
+            self._attributes = res['attributes']
+            self._relationships = res['relationships']
+
+    @classmethod
+    def from_json(cls, client, json_obj):
+        """
+        Allow instantiation of an Person object from JSON
+        """
+        return Organization(client, json_obj['id'], json_obj)
+
+    def liaisons(self):
+        liaisons_list = self._relationships['liaisons']['data']
+        tmp = []
+
+        for each_person in liaisons_list:
+            # Check if the person id exists in the API anymore
+            try:
+                tmp.append(Person(self.client, each_person['id']))
+            except:
+                continue
+
+        return tmp
+
+    def __getattr__(self, attr):
+        if attr not in self._attributes:
+            raise AttributeError("Org object has no attribute " + attr)
+        return self._attributes[attr]
+
+    def __repr__(self):
+        return self.name
+
+
 class Person(object):
 
     def __init__(self, client, person_id, json_obj=None):
@@ -100,7 +155,7 @@ class Person(object):
             self._relationships = json_obj['relationships']
         else:
             # Pull data from the API using event id
-            res = client.get_resource('people/%s' % team_id)['data']
+            res = client.get_resource('people/%s' % self.id)['data']
             self._attributes = res['attributes']
             self._relationships = res['relationships']
 
@@ -134,7 +189,7 @@ class Team(object):
             self._attributes = json_obj['attributes']
         else:
             # Pull data from the API using event id
-            res = client.get_resource('teams/%s' % team_id)['data']
+            res = client.get_resource('teams/%s' % self.id)['data']
             self._attributes = res['attributes']
 
     @classmethod
@@ -165,7 +220,7 @@ class Venue(object):
             self._relationships = json_obj['relationships']
         else:
             # Pull data from the API using event id
-            res = client.get_resource('venues/%s' % venue_id)['data']
+            res = client.get_resource('venues/%s' % self.id)['data']
             self._attributes = res['attributes']
             self._relationships = res['relationships']
             self._relationships = json_obj['relationships']
@@ -200,7 +255,7 @@ class Event(object):
             self._attributes = json_obj['attributes']
         else:
             # Pull data from the API using event id
-            res = client.get_resource('events/%s' % event_id)['data']
+            res = client.get_resource('events/%s' % self.id)['data']
             self._attributes = res['attributes']
             self._relationships = res['relationships']
 
@@ -225,5 +280,5 @@ class Event(object):
 
 if __name__ == '__main__':
     api = TNYUAPI(api_key=os.environ['TNYU_API_KEY'])
-    events = api.get_all_events()
-    print events
+    org = api.get_all_organizations()
+    print org[0].liaisons()[0].twitterId
