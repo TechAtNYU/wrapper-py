@@ -330,7 +330,6 @@ class Venue(object):
             res = client.get_resource('venues/%s' % self.id)['data']
             self._attributes = res['attributes']
             self._relationships = res['relationships']
-            self._relationships = json_obj['relationships']
 
     @classmethod
     def from_json(cls, client, json_obj):
