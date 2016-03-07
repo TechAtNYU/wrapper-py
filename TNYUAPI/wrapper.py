@@ -100,6 +100,17 @@ class TNYUAPI(object):
 
         return teams
 
+    def get_all_jobs(self, sort_by=None):
+        resources = self.get_resource('jobs')['data']
+        jobs = [Job.from_json(self, x) for x in resources]
+
+        if sort_by:
+            if not hasattr(jobs[0], sort_by):
+                raise InvalidSearchAttributeError()
+            return sorted(jobs, key=attrgetter(sort_by))
+
+        return jobs
+
     def get_resource(self, path):
         headers = {
             'content-type': 'application/vnd.api+json',
@@ -109,6 +120,41 @@ class TNYUAPI(object):
 
         r = requests.get(API_ROOT_URL + path, headers=headers)
         return r.json()
+
+
+class Job(object):
+
+    def __init__(self, client, job_id, json_obj=None):
+        self.id = job_id
+        self.client = client
+
+        if json_obj:
+            self._attributes = json_obj['attributes']
+            self._relationships = json_obj['relationships']
+        else:
+            # Pull data from the API using event id
+            res = client.get_resource('jobs/%s' % self.id)['data']
+            self._attributes = res['attributes']
+            self._relationships = res['relationships']
+
+    @classmethod
+    def from_json(cls, client, json_obj):
+        """
+        Allow instantiation of an Job object from JSON
+        """
+        return Job(client, json_obj['id'], json_obj)
+
+    def employer(self):
+        employer_id = self._relationships['employer']['data']['id']
+        return Organization(self.client, employer_id)
+
+    def __getattr__(self, attr):
+        if attr not in self._attributes:
+            raise AttributeError("Job object has no attribute " + attr)
+        return self._attributes[attr]
+
+    def __repr__(self):
+        return self.name
 
 
 class Project(object):
@@ -129,7 +175,7 @@ class Project(object):
     @classmethod
     def from_json(cls, client, json_obj):
         """
-        Allow instantiation of an Event object from JSON
+        Allow instantiation of an Project object from JSON
         """
         return Project(client, json_obj['id'], json_obj)
 
@@ -173,7 +219,7 @@ class Organization(object):
     @classmethod
     def from_json(cls, client, json_obj):
         """
-        Allow instantiation of an Person object from JSON
+        Allow instantiation of an Organization object from JSON
         """
         return Organization(client, json_obj['id'], json_obj)
 
@@ -256,7 +302,7 @@ class Team(object):
     @classmethod
     def from_json(cls, client, json_obj):
         """
-        Allow instantiation of an Event object from JSON
+        Allow instantiation of an Team object from JSON
         """
         return Team(client, json_obj['id'], json_obj)
 
@@ -289,7 +335,7 @@ class Venue(object):
     @classmethod
     def from_json(cls, client, json_obj):
         """
-        Allow instantiation of an Event object from JSON
+        Allow instantiation of an Venue object from JSON
         """
         return Venue(client, json_obj['id'], json_obj)
 
@@ -341,7 +387,4 @@ class Event(object):
 
 if __name__ == '__main__':
     api = TNYUAPI(api_key=os.environ['TNYU_API_KEY'])
-    proj = api.get_all_projects()
-
-    for e in proj:
-        print e.shown_at()
+    jobs = api.get_all_jobs()
